@@ -8,7 +8,11 @@ Module for loading climate model surface temperature data.
 
 import os
 import glob
+import json
 import cPickle
+import urllib2
+import urlparse
+import itertools
 import collections
 
 import numpy as np
@@ -62,50 +66,66 @@ def load_met(datapath):
             explanation of data in each key.
     """
 
-    filepaths = np.array(glob.glob('%s/*.txt' % datapath))
+    print 'Loading MET data.'
 
-    locations = dict()
+    meturi = 'http://www.metoffice.gov.uk/pub/data/weather/uk/climate/'
+    stations = json.loads(urllib2.urlopen(
+        urlparse.urljoin(meturi, 'historic/historic.json')
+    ).read())
 
-    for filepath in filepaths:
-        # Read in header for lat / lon and location name.
-        f = open(filepath, 'r')
-        loctokens = f.readline().split(' ')
-        f.close()
+    stations.update(stations.get('open', {}))
+    stations.update(stations.get('closed', {}))
+    del stations['open']
+    del stations['closed']
 
-        # Read in data, convert from UTM to lat/lon, get winter averages.
-        easting, northing = loctokens[1].rstrip('E'), loctokens[2].rstrip('N')
-        lat, lon = utm.to_latlon(easting * 100, northing * 100, 30, 'U')
+    for station_name, station in stations.iteritems():
+        datauri = urlparse.urljoin(meturi, 'stationdata/%s' % station['url'])
+        text = urllib2.urlopen(datauri).read().splitlines()
 
-        data = np.genfromtxt(filepath, skip_header=7, missing_values=['---'])
-        years, months, tmax, tmin, afdays, rainmm, sunhrs = data.hsplit(7)
-        tavg = (tmax + tmin) / 2
-        winter = np.array([1, 2, 3, 12])
-        unique_years = np.sort(np.unique(years))
-        twinter = np.array([
-            np.mean([year_tavg[months == month] for month in winter])
-            for year, year_tavg in [(y, tavg[years == y]) for y in unique_years]
+        # MET data has a really bizarre format.
+        data = np.array([
+            [
+                float(stripped) if len(stripped) else np.nan
+                for stripped in [
+                    token.rstrip('*-')
+                    for token in line.split()[:4]
+                ]
+            ]
+            for line in text[7:] if 'Site' not in line
         ])
 
-        # Add it to the list of locations.
-        locations[(lat, lon)] = dict(twinter=twinter, years=unique_years)
+        # Read in data, get winter averages.
+        years, months, tmax, tmin = [data[:, i] for i in range(4)]
+        years = np.array(years, dtype=int)
+        tavg = (tmax + tmin) / 2
 
-    all_years = np.sort(
-        np.unique([l['years'] for l in locations.itervalues()])
-    )
+        station['years'] = np.sort(np.unique(years))
+        station['twinter'] = np.array([
+            np.mean(np.concatenate([
+                year_tavg[year_months == m] for m in [1, 2, 3, 12]
+            ]))
+            for year_tavg, year_months in [
+                (tavg[years == y], months[years == y]) for y in station['years']
+            ]
+        ])
+
+    # Union of all years.
+    all_years = sorted(set().union(*[set(s['years']) for s in stations.itervalues()]))
 
     return dict(
         name='MET',
         colors=['k'],
         type='single',
         plotargs=dict(lw=2),
-        locations=np.array(locations.iterkeys()),
         years=all_years,
+        names=stations.keys(),
+        locations=np.array([[s['lat'], s['lon']] for s in stations.values()]),
         data=np.array([
             [
-                l['twinter'][year] if year in l['years'] else np.nan
+                s['twinter'][s['years'] == year] if year in s['years'] else np.nan
                 for year in all_years
             ]
-            for l in locations.itervalues()
+            for s in stations.values()
         ])
     )
 
@@ -142,7 +162,7 @@ def load_fs_cached(picklepath, fun):
         return data
 
 
-def load_all_data():
+def load_all_data(datapath):
     """
     Loads everything (MET UK weather station data, ERA-Interim re-analysis,
     CMIP5 data, CORDEX data) for the locations specified in data/locations.csv
@@ -175,18 +195,21 @@ def load_all_data():
             plotargs: dictionary of other arguments for plotting.
     """
 
-    locations = np.genfromtxt('data/locations.csv', delimiter=',')
+    locations = np.genfromtxt(
+        os.path.join(datapath, 'locations.csv'), delimiter=','
+    )
 
     # Single sources, e.g. weather station data, ERA-Interim re-analysis.
     singles = collections.OrderedDict()
-    singles['met'] = load_fs_cached('data/met/met.pickle', load_met)
+    singles['met'] = load_fs_cached(
+        os.path.join(datapath, 'met.pickle'), load_met
+    )
     singles['eraint'] = load_fs_cached(
-        'data/knmi/eraint/eraint.pickle', load_eraint
+        os.path.join(datapath, 'knmi', 'eraint', 'eraint.pickle'), load_eraint
     )
 
-
     # TODO: Make ensemble sets able to use load_fs_data
-    
+
     # Datasets will contain all datasets, including each individual ensember
     # member from the "modelsets."
     datasets = collections.OrderedDict()
@@ -196,7 +219,7 @@ def load_all_data():
     modelsets = collections.OrderedDict()
     modelsets['cmip5'] = dict(
         name='CMIP5',
-        path='data/knmi/cmip5/winter/',
+        path=os.path.join(datapath, 'knmi', 'cmip5', 'winter'),
         type='ensemble',
         experiments=['rcp26', 'rcp45', 'rcp85'],
         color='cyan',
@@ -206,7 +229,7 @@ def load_all_data():
 
     modelsets['cordex'] = dict(
         name='EURO-CORDEX',
-        path='data/cordex/winter/',
+        path=os.path.join(datapath, 'cordex', 'winter'),
         type='ensemble',
         experiments=['evaluation', 'rcp26', 'rcp45', 'rcp85'],
         color='orange',
@@ -214,7 +237,7 @@ def load_all_data():
         plotargs=dict(alpha=0.25)
     )
 
-    # "experiments" indexes all the sources by experiment (evaluotion, rcp26,
+    # "experiments" indexes all the sources by experiment (evaluation, rcp26,
     # rcp45, rcp85, etc.)
     experiments = dict()
     for modelset in modelsets.itervalues():
@@ -270,3 +293,12 @@ def load_all_data():
         dataset['diffs'] = np.diff(dataset['data'], axis=1)
 
     return locations, datasets, experiments, singles, modelsets
+
+
+def main():
+    locations, datasets, experiments, singles, modelsets = load_all_data('data')
+    print locations, datasets, experiments, singles, modelsets
+
+if __name__ == '__main__':
+    main()
+
