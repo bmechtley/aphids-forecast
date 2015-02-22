@@ -45,7 +45,7 @@ def interpolate_data(input):
     interpolated = np.zeros((len(times), len(input['locations']) + 1))
 
     for t, time in enumerate(times):
-        var_slice = var[t,:,:]
+        var_slice = var[t, :, :]
         interpolated[t, 0] = time
 
         interpolated[t, 1:] = scipy.interpolate.griddata(

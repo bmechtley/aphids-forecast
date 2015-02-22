@@ -44,7 +44,7 @@ def flatten_list(l):
 def main():
     diff_bins = np.linspace(-6, 6, 20)
 
-    locations, _, experiments, singles, _ = tempdata.load_all_data()
+    locations, _, experiments, singles, _ = tempdata.load_all_data('../', 'data')
 
     for experiment, datasets in itertools.chain(
             singles.iteritems(), experiments.iteritems()

@@ -4,61 +4,29 @@ tempdata.py
 Reuman Lab, Kansas Biological Survey
 
 Module for loading climate model surface temperature data.
+
+TODO: I am currently working on refactoring this so that each dataset contain
+    its own list of locations and own list of years so that they can be
+    disjoint. For some data, e.g. ERA-Interim, it may be best to query an API,
+    if possible, saving the resulting dataset as a cached copy. The same could
+    be said, eventually, about CMIP5/CORDEX data.
 """
 
 import os
-import glob
 import json
+import os.path
 import cPickle
 import urllib2
 import urlparse
-import itertools
 import collections
 
 import numpy as np
 import matplotlib.cm
 
-import utm
-
-# TODO: I am currently working on refactoring this so that each dataset contains
-# TODO:     its own list of locations and own list of years so that they can be
-# TODO:     disjoint. For some data, e.g. ERA-Interim, it may be best to query
-# TODO:     an API, if possible, saving the resulting dataset as a cached copy.
-# TODO:     The same could be said, eventually, about CMIP5/CORDEX data.
+import ensembles
 
 
-def load_ensemble(experiment_path, locs):
-    """
-    Load average winter temperature data for a particular experiment, given a
-    list of locations.
-    """
-
-    filepaths = np.array(glob.glob('%s/*.csv' % experiment_path))
-
-    # First, sort all the files the same as the locations array for
-    # consistency.
-    file_locations = np.array([
-        '%s_%s' % (t[0], t[1])
-        for t in [
-            os.path.basename(f).rstrip('.csv').split('_')
-            for f in filepaths
-        ] if len(t) > 1
-    ])
-
-    temps = np.array([
-        np.genfromtxt(filepath, delimiter=',')
-        for filepath in filepaths[np.array([
-            np.argwhere(file_locations == '%.3fN_%.3fE' % tuple(ll))[0]
-            for ll in locs
-        ]).flatten()]
-    ])
-
-    # Return a list of years and an array of temperatures of shape
-    # (# locations, # years, # models)
-    return temps[0, :, 0], temps[:, :, 1:]
-
-
-def load_met(datapath):
+def load_met(data_path, force=False):
     """
         Load UK weather station data from downloaded MET datasets.
 
@@ -66,112 +34,93 @@ def load_met(datapath):
             explanation of data in each key.
     """
 
-    print 'Loading MET data.'
+    met_path = os.path.join(data_path, 'met.npz')
 
-    meturi = 'http://www.metoffice.gov.uk/pub/data/weather/uk/climate/'
-    stations = json.loads(urllib2.urlopen(
-        urlparse.urljoin(meturi, 'historic/historic.json')
-    ).read())
+    if force or not os.path.exists(met_path):
+        print 'Loading MET data.'
 
-    stations.update(stations.get('open', {}))
-    stations.update(stations.get('closed', {}))
-    del stations['open']
-    del stations['closed']
+        meturi = 'http://www.metoffice.gov.uk/pub/data/weather/uk/climate/'
+        stations = json.loads(urllib2.urlopen(
+            urlparse.urljoin(meturi, 'historic/historic.json')
+        ).read())
 
-    for station_name, station in stations.iteritems():
-        datauri = urlparse.urljoin(meturi, 'stationdata/%s' % station['url'])
-        text = urllib2.urlopen(datauri).read().splitlines()
+        stations.update(stations.get('open', {}))
+        stations.update(stations.get('closed', {}))
+        del stations['open']
+        del stations['closed']
 
-        # MET data has a really bizarre format.
-        data = np.array([
-            [
-                float(stripped) if len(stripped) else np.nan
-                for stripped in [
-                    token.rstrip('*-')
-                    for token in line.split()[:4]
+        for station_name, station in stations.iteritems():
+            datauri = urlparse.urljoin(
+                meturi, 'stationdata/%s' % station['url']
+            )
+            text = urllib2.urlopen(datauri).read().splitlines()
+
+            # MET data has a really bizarre format.
+            data = np.array([
+                [
+                    float(stripped) if len(stripped) else np.nan
+                    for stripped in [
+                        token.rstrip('*-')
+                        for token in line.split()[:4]
+                    ]
                 ]
-            ]
-            for line in text[7:] if 'Site' not in line
-        ])
+                for line in text[7:] if 'Site' not in line
+            ])
 
-        # Read in data, get winter averages.
-        years, months, tmax, tmin = [data[:, i] for i in range(4)]
-        years = np.array(years, dtype=int)
-        tavg = (tmax + tmin) / 2
+            # Read in data, get winter averages.
+            years, months, tmax, tmin = [data[:, i] for i in range(4)]
+            years = np.array(years, dtype=int)
+            tavg = (tmax + tmin) / 2
 
-        station['years'] = np.sort(np.unique(years))
-        station['twinter'] = np.array([
-            np.mean(np.concatenate([
-                year_tavg[year_months == m] for m in [1, 2, 3, 12]
-            ]))
-            for year_tavg, year_months in [
-                (tavg[years == y], months[years == y]) for y in station['years']
-            ]
-        ])
+            station['years'] = np.sort(np.unique(years))
+            station['twinter'] = np.array([
+                np.mean(np.concatenate([
+                    year_tavg[year_months == m] for m in [1, 2, 3, 12]
+                ]))
+                for year_tavg, year_months in [
+                    (tavg[years == y], months[years == y])
+                    for y in station['years']
+                ]
+            ])
 
-    # Union of all years.
-    all_years = sorted(set().union(*[set(s['years']) for s in stations.itervalues()]))
+        # Union of all years.
+        all_years = sorted(set().union(*[
+            set(s['years']) for s in stations.itervalues()
+        ]))
 
-    return dict(
-        name='MET',
-        colors=['k'],
-        type='single',
-        plotargs=dict(lw=2),
-        years=all_years,
-        names=stations.keys(),
-        locations=np.array([[s['lat'], s['lon']] for s in stations.values()]),
-        data=np.array([
-            [
-                s['twinter'][s['years'] == year] if year in s['years'] else np.nan
-                for year in all_years
-            ]
-            for s in stations.values()
-        ])
-    )
+        met = dict(
+            years=all_years,
+            names=stations.keys(),
+            locations=np.array(
+                [[s['lat'], s['lon']] for s in stations.values()]
+            ),
+            data=np.array([
+                [
+                    s['twinter'][s['years'] == year]
+                    if year in s['years'] else np.nan
+                    for year in all_years
+                ]
+                for s in stations.values()
+            ])
+        )
 
-
-def load_eraint(datapath):
-    eraint = dict(
-        name='ERA-Interim',
-        data=np.genfromtxt(datapath, delimiter=','),
-        colors=['m'],
-        type='single',
-        plotargs=dict(lw=2)
-    )
-
-    eraint['years'] = eraint['data'][:, 0] + 1
-    eraint['data'] = np.atleast_3d(eraint['data'][:, 1:].T)
-
-    return eraint
-
-
-def load_fs_cached(picklepath, fun):
-    """
-    Load data produced by fun() that might optionally be cached on disk.
-
-    :param picklepath: path to where the cached data should be.
-    :param fun: function that generates the data.
-    :return: the data.
-    """
-
-    if os.path.exists(picklepath):
-        return cPickle.load(open(picklepath, 'r'))
+        np.savez(met_path, **met)
     else:
-        data = fun(os.path.split(picklepath)[0])
-        cPickle.dump(data, open(picklepath, 'w'))
-        return data
+        met = np.load(met_path)
+
+    return met
 
 
-def load_all_data(datapath):
+def load_all_data(esgf_path, data_path):
     """
     Loads everything (MET UK weather station data, ERA-Interim re-analysis,
-    CMIP5 data, CORDEX data) for the locations specified in data/locations.csv
-    and spits it out in a tuple.
+    CMIP5 data, CORDEX data) for the locations specified by MET stations and
+    spits it out in a tuple.
 
     TODO: Make this a little more configurable, rather than hardcoding dataset
         paths / properties.
 
-    :return: (locations, datasets, experiments, singles, modelsets)
+    :return: (locations, datasets, experiments, singles, projects)
         locations (np.array): (L, 2) array of L latitude/longitude pairs. These
             will be in the same order as all the datasets.
         datasets: flat dictionary where each key is either 'met', 'eraint', or
@@ -181,9 +130,9 @@ def load_all_data(datapath):
             singles.
         singles: flat dictionary only containing single-element ensembles (i.e.
             met, eraint).
-        modelsets: dictionary containing information about the modelsets. It
-            does not include any data, but is rather used as a template to
-            initialize the ensembles.
+        projects: dictionary containing information about the projects (CMIP5,
+            CORDEX, ana4MIPs). It does not include any data, but is rather used
+            as a template to initialize the ensembles.
 
         Each dataset contained in locations, datasets, experiments, and singles
         is stored as a dictionary with keys:
@@ -195,20 +144,17 @@ def load_all_data(datapath):
             plotargs: dictionary of other arguments for plotting.
     """
 
-    locations = np.genfromtxt(
-        os.path.join(datapath, 'locations.csv'), delimiter=','
-    )
-
     # Single sources, e.g. weather station data, ERA-Interim re-analysis.
     singles = collections.OrderedDict()
-    singles['met'] = load_fs_cached(
-        os.path.join(datapath, 'met.pickle'), load_met
+    singles['met'] = dict(
+        name='MET',
+        colors=['k'],
+        type='single',
+        plotargs=dict(lw=2)
     )
-    singles['eraint'] = load_fs_cached(
-        os.path.join(datapath, 'knmi', 'eraint', 'eraint.pickle'), load_eraint
-    )
+    singles['met'].update(load_met(data_path))
 
-    # TODO: Make ensemble sets able to use load_fs_data
+    # TODO: Load ERA-Interim as modelset from ana4MIPs.
 
     # Datasets will contain all datasets, including each individual ensember
     # member from the "modelsets."
@@ -216,70 +162,91 @@ def load_all_data(datapath):
 
     # Sources with several sub-sources, i.e. ensemble members (different models,
     # forcing parameters, etc.)
-    modelsets = collections.OrderedDict()
-    modelsets['cmip5'] = dict(
+    projects = collections.OrderedDict()
+    projects['cmip5'] = dict(
         name='CMIP5',
-        path=os.path.join(datapath, 'knmi', 'cmip5', 'winter'),
-        type='ensemble',
-        experiments=['rcp26', 'rcp45', 'rcp85'],
         color='cyan',
+        type='ensemble',
+        plotargs=dict(alpha=0.25),
         colormap=matplotlib.cm.winter,
-        plotargs=dict(alpha=0.25)
+        path=os.path.join(esgf_path, 'CMIP5'),
+        experiments=['rcp26', 'rcp45', 'rcp85']
     )
 
-    modelsets['cordex'] = dict(
-        name='EURO-CORDEX',
-        path=os.path.join(datapath, 'cordex', 'winter'),
-        type='ensemble',
-        experiments=['evaluation', 'rcp26', 'rcp45', 'rcp85'],
+    projects['cordex'] = dict(
+        name='CORDEX',
         color='orange',
+        type='ensemble',
+        plotargs=dict(alpha=0.25),
         colormap=matplotlib.cm.autumn,
-        plotargs=dict(alpha=0.25)
+        path=os.path.join(esgf_path, 'CORDEX'),
+        experiments=['evaluation', 'rcp26', 'rcp45', 'rcp85']
+    )
+
+    projects['ana4mips'] = dict(
+        name='ana4MIPs',
+        color='red',
+        type='ensemble',
+        colormap=matplotlib.cm.Reds,
+        path=os.path.join(esgf_path, 'ana4MIPs'),
+        experiments=['ERA-Interim']
     )
 
     # "experiments" indexes all the sources by experiment (evaluation, rcp26,
     # rcp45, rcp85, etc.)
     experiments = dict()
-    for modelset in modelsets.itervalues():
-        for experiment in modelset['experiments']:
+    for project in projects.itervalues():
+        for experiment in project['experiments']:
             experiments[experiment] = collections.OrderedDict()
 
     # Add each ensemble member to the full datasets dict and the appropriate
     # experiment dict.
-    for modelset_name, modelset in modelsets.iteritems():
-        for experiment in modelset['experiments']:
+    for project_name, project in projects.iteritems():
+        # Interpolate the data from downloaded ESGF data if it hasn't already
+        # been done.
+        ensembles.interpolate_data(
+            esgf_path,
+            data_path,
+            project['name'],
+            singles['met']['locations'],
+            project['experiments'],
+            'tas'
+        )
+
+        # Load winter averages, computing them or loading them from disk.
+        winter = ensembles.load_winteravg(
+            project['path'], project['experiments']
+        )
+
+        # For each experiment in the project, sort the models according to
+        # sum of squared differences from the minimum and add it to the
+        # flattened dictionaries of experiments/datasets.
+        for experiment in project['experiments']:
             ensemble = dict(
-                name=modelset['name'],
-                path=os.path.join(modelset['path'], experiment),
                 type='ensemble',
-                color=modelset['color'],
-                colormap=modelset['colormap'],
-                plotargs=modelset['plotargs']
+                name=project['name'],
+                color=project['color'],
+                colormap=project['colormap'],
+                plotargs=project['plotargs'],
+                data=winter[experiment]['temps'],
+                years=winter[experiment]['years'],
+                path=os.path.join(project['path'], experiment)
             )
 
-            if os.path.exists(ensemble['path']):
-                years, data = load_ensemble(ensemble['path'], locations)
+            mindiffs = ensemble['data'] - np.nanmin(
+                ensemble['data'], axis=(0, 2)
+            )[np.newaxis, :, np.newaxis]
 
-                # Sort the models by squared sum of distances from the
-                # minimum temperature. This helps make a nice gradient in
-                # the plots when they're colored according to a colormap.
-                mindiffs = data - np.nanmin(
-                    data, axis=(0, 2)
-                )[np.newaxis, :, np.newaxis]
-
-                data = data[:, :, np.argsort(
-                    np.sum(mindiffs ** 2, axis=(0, 1))
-                )]
-            else:
-                data, years = np.empty((0, 0, 0)), []
+            ensemble['data'] = ensemble['data'][:, :, np.argsort(
+                np.sum(mindiffs ** 2, axis=(0, 1))
+            )]
 
             # Color each ensemble member according to the modelset's colormap.
-            ensemble['data'], ensemble['years'] = data, years
             ensemble['colors'] = ensemble['colormap'](
-                np.linspace(0, 1, data.shape[2])
+                np.linspace(0, 1, ensemble['data'].shape[2])
             )
 
-            set_exp_name = modelset_name + '-' + experiment
+            set_exp_name = project_name + '-' + experiment
 
             datasets[set_exp_name] = ensemble
             experiments[experiment][set_exp_name] = ensemble
@@ -292,11 +259,14 @@ def load_all_data(datapath):
     for dataset in datasets.itervalues():
         dataset['diffs'] = np.diff(dataset['data'], axis=1)
 
-    return locations, datasets, experiments, singles, modelsets
+    return singles['met']['locations'], datasets, experiments, singles, projects
 
 
 def main():
-    locations, datasets, experiments, singles, modelsets = load_all_data('data')
+    locations, datasets, experiments, singles, modelsets = load_all_data(
+        '../', 'data'
+    )
+
     print locations, datasets, experiments, singles, modelsets
 
 if __name__ == '__main__':

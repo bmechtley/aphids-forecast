@@ -83,11 +83,10 @@ def main():
         experiment_path = os.path.join(data_path, experiment)
 
         # TODO: Temporarily ignoring 44i, because the interpolation code
-        # seems to be messed up. Giving really large negative numbers for
-        # temperature.
+        # TODO:     seems to be messed up. Giving really large negative numbers
+        # TODO:     for temperature.
         file_paths = [
-            fp
-            for fp in glob.glob('%s/*.csv' % experiment_path)
+            fp for fp in glob.glob('%s/*.csv' % experiment_path)
             if not ('44i' in fp)
         ]
 
