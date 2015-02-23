@@ -35,7 +35,7 @@ def modelname(path):
     return '_'.join(path.split('_')[2:6:3])
 
 
-def interpolate_data_process(args):
+def interpolate_variable_worker(args):
     """
     Process for parallel interpolation of several NetCDF files at once. Takes
     in a dictionary with arguments for interpolation.
@@ -81,11 +81,11 @@ def interpolate_data_process(args):
             latlons, var[t, :, :].flatten(), args['locations']
         )
 
-    print args['id'], 'writing', args['csv']
-    np.savetxt(args['csv'], interpolated)
+    print args['id'], 'writing', args['npy']
+    np.save(args['npy'], interpolated)
 
 
-def interpolate_data(
+def interpolate_variable(
     source_path, out_path, project, locations, experiments, variable,
     force=False
 ):
@@ -120,28 +120,28 @@ def interpolate_data(
             if f.endswith(('.nc', '.nc4'))
         ]
 
-        csv_paths = [
+        npyfiles = [
             os.path.join(
                 out_path,
                 project,
                 experiment,
-                os.path.splitext(ncfile)[0] + '.csv'
+                os.path.splitext(ncfile)[0] + '.npy'
             )
             for ncfile in netcdf_files
         ]
 
         print experiment_path, '(%d)' % len(netcdf_files)
 
-        multiprocessing.Pool(3).map(interpolate_data_process, [
+        multiprocessing.Pool(3).map(interpolate_variable_worker, [
             {
-                'csv': csv_path,
+                'npy': npy,
                 'netcdf': os.path.join(experiment_path, ncfile),
                 'locations': locations,
                 'var': variable,
                 'id': i,
             }
-            for i, (ncfile, csv_path) in enumerate(zip(netcdf_files, csv_paths))
-            if force or not os.path.exists(csv_path)
+            for i, (ncfile, npy) in enumerate(zip(netcdf_files, npyfiles))
+            if force or not os.path.exists(npy)
         ])
 
 
