@@ -19,14 +19,14 @@ project_path = os.path.join(
 
 for experiment in config['experiments']:
     config['query']['experiment'] = experiment
-
-    distutils.dir_util.mkpath(os.path.join(project_path, experiment))
+    experiment_path = os.path.join(project_path, experiment)
+    distutils.dir_util.mkpath(experiment_path)
 
     url = config['baseurl'] + '&'.join([
         '%s=%s' % (k, v) for k, v in config['query'].iteritems()
     ])
 
-    path = '%s/wget.sh' % experiment
+    path = '%s/wget.sh' % experiment_path
 
     print url, '>', path
 
