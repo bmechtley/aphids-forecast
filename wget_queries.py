@@ -14,7 +14,7 @@ import distutils.dir_util
 config = json.load(open(sys.argv[1], 'r'))
 project_path = os.path.join(
     os.path.dirname(sys.argv[1]),
-    os.path.splitext(os.path.basename(sys.argv[1])[0])
+    os.path.splitext(os.path.basename(sys.argv[1]))[0]
 )
 
 for experiment in config['experiments']:
