@@ -12,11 +12,15 @@ import urllib
 import distutils.dir_util
 
 config = json.load(open(sys.argv[1], 'r'))
+project_path = os.path.join(
+    os.path.dirname(sys.argv[1]),
+    config['project']
+)
 
 for experiment in config['experiments']:
     config['query']['experiment'] = experiment
 
-    distutils.dir_util.mkpath(experiment)
+    distutils.dir_util.mkpath(os.path.join(project_path, experiment))
 
     url = config['baseurl'] + '&'.join([
         '%s=%s' % (k, v) for k, v in config['query'].iteritems()
