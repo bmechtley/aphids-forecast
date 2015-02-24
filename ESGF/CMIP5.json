@@ -1,7 +1,7 @@
 {
   "baseurl": "http://pcmdi9.llnl.gov/esg-search/wget?",
   "experiments": ["rcp26", "rcp45", "rcp85"],
-  "options": {
+  "query": {
     "variable": "tas",
     "project": "CMIP5",
     "latest": "true",
