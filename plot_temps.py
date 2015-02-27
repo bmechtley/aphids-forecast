@@ -46,9 +46,7 @@ def main():
 
     locations, _, experiments, singles, _ = tempdata.load_all_data('ESGF', 'cache')
 
-    for experiment, datasets in itertools.chain(
-            singles.iteritems(), experiments.iteritems()
-    ):
+    for experiment, datasets in experiments.iteritems():
         # Make the figure.
         pp.figure(figsize=(10, 20))
 
