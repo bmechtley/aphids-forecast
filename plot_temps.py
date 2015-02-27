@@ -54,12 +54,12 @@ def main():
             # Line plots.
             pp.subplot(len(locations), 2, (loc * 2) + 1)
 
-            for dataset in itertools.chain(
-                    datasets.itervalues(), singles.itervalues()
+            for dskey, dataset in itertools.chain(
+                    datasets.iteritems(), singles.iteritems()
             ):
                 data, years = dataset['data'], dataset['years']
                 plotargs = dataset.get('plotargs', {})
-
+                print experiment, dskey, data.shape
                 for model in range(data.shape[2]):
                     plotdata = data[loc, :, model]
                     finite = np.isfinite(plotdata)
