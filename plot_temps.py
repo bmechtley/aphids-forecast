@@ -59,6 +59,8 @@ def main():
             pp.subplot(len(locations), 2, (loc * 2) + 1)
 
             for dataset in itertools.chain(datasets, singles):
+                print dataset
+
                 data, years = dataset['data'], dataset['years']
                 plotargs = dataset.get('plotargs', {})
 
