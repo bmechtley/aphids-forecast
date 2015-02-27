@@ -132,7 +132,7 @@ def main():
         )
         pp.subplots_adjust(hspace=0.9, wspace=0.25, top=0.95, bottom=0.05)
 
-        if not os.exists('plots'):
+        if not os.path.exists('plots'):
             os.mkdir('plots')
 
         plot_path = os.path.join('plots', 'temps-%s.pdf' % experiment)
