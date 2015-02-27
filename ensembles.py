@@ -198,8 +198,11 @@ def load_winteravg(data_path, experiments, force=False):
         experiment_path = os.path.join(data_path, experiment)
         winter_path = os.path.join(experiment_path, 'winter.npz')
 
+        print experiment_path, winter_path
+
         if force or not os.path.exists(winter_path):
             file_paths = glob.glob('%s/*.npy' % experiment_path)
+            print '\t%d files.' % len(file_paths)
 
             # Get everything as a giant array with rows formatted as:
             #   [year] [month] [location_id] [model_id] [temp]
