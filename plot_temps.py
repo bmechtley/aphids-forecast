@@ -69,10 +69,11 @@ def main():
                     plotdata = data[loc, :, model]
                     finite = np.isfinite(plotdata)
 
-                    pp.plot(
-                        years[finite], plotdata[finite],
-                        color=dataset['colors'][model], **plotargs
-                    )
+                    if len(finite):
+                        pp.plot(
+                            years[finite], plotdata[finite],
+                            color=dataset['colors'][model], **plotargs
+                        )
 
             # Union of all years from every dataset.
             allyears = set([
