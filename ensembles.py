@@ -216,9 +216,9 @@ def load_winteravg(data_path, experiments, force=False):
             data = data[
                 np.any([data[:, cmonth] == m for m in (1, 2, 3, 12)], axis=0)
             ]
-            uniq_year = sorted(np.unique(data[:, cyear]))
-            uniq_mdl = sorted(np.unique(data[:, cmdl]))
-            uniq_loc = sorted(np.unique(data[:, cloc]))
+            uniq_year = np.array(sorted(np.unique(data[:, cyear])), dtype=int)
+            uniq_mdl = np.array(sorted(np.unique(data[:, cmdl])), dtype=int)
+            uniq_loc = np.array(sorted(np.unique(data[:, cloc])), dtype=int)
 
             print uniq_loc
 
