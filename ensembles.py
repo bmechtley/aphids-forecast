@@ -198,7 +198,7 @@ def load_winteravg(data_path, experiments, force=False):
         experiment_path = os.path.join(data_path, experiment)
         winter_path = os.path.join(experiment_path, 'winter.npz')
 
-        print experiment_path, winter_path
+        print 'Extracting winter averages from %s.' % experiment_path
 
         if force or not os.path.exists(winter_path):
             file_paths = glob.glob('%s/*.npy' % experiment_path)
