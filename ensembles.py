@@ -83,7 +83,7 @@ def interpolate_variable_worker(args):
 
     print args['id'], 'writing', args['npy']
 
-    os.makedirs(args['npy'])
+    os.makedirs(os.path.dirname(args['npy']))
     np.save(args['npy'], interpolated)
 
 
