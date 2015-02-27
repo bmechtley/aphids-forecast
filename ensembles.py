@@ -220,6 +220,8 @@ def load_winteravg(data_path, experiments, force=False):
             uniq_mdl = sorted(np.unique(data[:, cmdl]))
             uniq_loc = sorted(np.unique(data[:, cloc]))
 
+            print uniq_loc
+
             # (# locations, # years, # models)
             expdata[experiment] = dict(
                 models=[modelname(path) for path in file_paths],
