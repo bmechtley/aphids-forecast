@@ -60,8 +60,13 @@ def main():
                 data, years = dataset['data'], dataset['years']
                 plotargs = dataset.get('plotargs', {})
 
+                # TODO: I thought I already took care of this.
+
                 if len(data.shape) < 3:
                     data = np.atleast_3d(data)
+
+                if len(diffs.shape) < 3:
+                    diffs = np.atleast_3d(diffs)
 
                 print experiment, dskey, data.shape
 
