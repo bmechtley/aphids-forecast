@@ -204,7 +204,7 @@ def load_all_data(esgf_path, data_path):
     for project_name, project in projects.iteritems():
         # Interpolate the data from downloaded ESGF data if it hasn't already
         # been done.
-        ensembles.interpolate_data(
+        ensembles.interpolate_variable(
             esgf_path,
             data_path,
             project['name'],
