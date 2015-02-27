@@ -49,8 +49,6 @@ def main():
     for experiment, datasets in itertools.chain(
             singles.iteritems(), experiments.iteritems()
     ):
-        print experiment
-
         # Make the figure.
         pp.figure(figsize=(10, 20))
 
@@ -58,9 +56,9 @@ def main():
             # Line plots.
             pp.subplot(len(locations), 2, (loc * 2) + 1)
 
-            for dataset in itertools.chain(datasets, singles):
-                print dataset
-
+            for dataset in itertools.chain(
+                    datasets.iteritems(), singles.iteritems()
+            ):
                 data, years = dataset['data'], dataset['years']
                 plotargs = dataset.get('plotargs', {})
 
