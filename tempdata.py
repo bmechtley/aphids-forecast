@@ -264,7 +264,7 @@ def load_all_data(esgf_path, data_path):
 
 def main():
     locations, datasets, experiments, singles, modelsets = load_all_data(
-        '../', 'data'
+        'ESGF', 'cache'
     )
 
     print locations, datasets, experiments, singles, modelsets
