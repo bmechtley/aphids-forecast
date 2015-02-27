@@ -150,7 +150,7 @@ def interpolate_variable(
             if force or not os.path.exists(npy)
         ]
 
-        print '\t%s (%d sources, %d to process)', (
+        print '\t%s (%d sources, %d to process)' % (
             experiment_path, len(netcdf_files), len(ncnpy)
         )
 
