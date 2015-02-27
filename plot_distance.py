@@ -14,16 +14,17 @@ def denan(x, y):
     nans = np.bitwise_or(xnan, ynan)
     return x[~nans], y[~nans]
 
-nlocs = len(tempdata.locations)
+locations, datasets, experiments, singles, modelsets = tempdata.load_all_data(
+    'ESGF', 'cache'
+)
+
+nlocs = len(locations)
 print nlocs
-distances = np.zeros([nlocs] * 2)
 
 location_combos = list(itertools.combinations_with_replacement(range(nlocs), 2))
 
 distances = np.array([
-    geopy.distance.distance(
-        tempdata.locations[l1], tempdata.locations[l2]
-    /l).kilometers
+    geopy.distance.distance(locations[l1], locations[l2]).kilometers
     for l1, l2 in location_combos
 ])
 
@@ -31,11 +32,14 @@ sortidx = np.argsort(distances)
 
 distances = distances[sortidx]
 
-for experiment, datasets in tempdata.experiments.iteritems():
+for experiment, datasets in experiments.iteritems():
     pp.figure()
 
     for dataset in datasets.itervalues():
         data = dataset['data']
+
+        if len(data.shape) < 3:
+            data = np.atleast_3d(data)
 
         for m in range(data.shape[2]):
             corr = np.array([
@@ -52,7 +56,6 @@ for experiment, datasets in tempdata.experiments.iteritems():
                 distances, corr,
                 color=dataset['colors'][m], **dataset.get('plotargs', {})
             )
-
 
     pp.xlim(np.amin(distances), np.amax(distances))
     pp.ylim(0, 1.1)
