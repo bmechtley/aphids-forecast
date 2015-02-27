@@ -224,13 +224,16 @@ def load_all_data(esgf_path, data_path):
         # For each experiment in the project, sort the models according to
         # sum of squared differences from the minimum and add it to the
         # flattened dictionaries of experiments/datasets.
+
+        # TODO: Probably best just to unpack the project O_o
+
         for experiment in project['experiments']:
             ensemble = dict(
                 type='ensemble',
                 name=project['name'],
                 color=project['color'],
                 colormap=project['colormap'],
-                plotargs=project['plotargs'],
+                plotargs=project.get('plotargs', {}),
                 data=winter[experiment]['temps'],
                 years=winter[experiment]['years'],
                 path=os.path.join(project['path'], experiment)
