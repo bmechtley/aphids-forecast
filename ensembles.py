@@ -227,7 +227,7 @@ def load_winteravg(data_path, experiments, force=False):
                 temps=np.array([
                     [
                         [
-                            np.mean(lym_data)
+                            np.mean(lym_data[:, ctemp])
                             for (m, lym_data) in [
                                 (m, ly_data[ly_data[:, cmdl] == m])
                                 for m in uniq_mdl
