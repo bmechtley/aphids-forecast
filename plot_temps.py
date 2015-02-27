@@ -48,7 +48,7 @@ def main():
 
     for experiment, datasets in experiments.iteritems():
         # Make the figure.
-        pp.figure(figsize=(10, 20))
+        pp.figure(figsize=(10, 40))
 
         for loc in range(len(locations)):
             # Line plots.
