@@ -218,7 +218,7 @@ def load_all_data(esgf_path, data_path):
 
         # Load winter averages, computing them or loading them from disk.
         winter = ensembles.load_winteravg(
-            project['path'], project['experiments']
+            os.path.join(data_path, project['name']), project['experiments']
         )
 
         # For each experiment in the project, sort the models according to
