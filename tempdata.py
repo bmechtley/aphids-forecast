@@ -104,7 +104,7 @@ def load_met(data_path, force=False):
                     for year in all_years
                 ]
                 for s in stations.values()
-            ])
+            ]) + 273.15
         )
 
         np.savez(met_path, **met)
