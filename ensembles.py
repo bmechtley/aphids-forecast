@@ -136,7 +136,7 @@ def interpolate_variable(
             for ncfile in netcdf_files
         ]
 
-        print experiment_path, '(%d)' % len(netcdf_files)
+
 
         if cpus is None:
             cpus = max(1, int(os.environ.get(
@@ -150,18 +150,21 @@ def interpolate_variable(
             if force or not os.path.exists(npy)
         ]
 
-        print '\t%s: %d to process.' % (experiment, len(ncnpy))
+        print '\t%s (%d sources, %d to process)', (
+            experiment_path, len(netcdf_files), len(ncnpy)
+        )
 
-        multiprocessing.Pool(cpus).map(interpolate_variable_worker, [
-            {
-                'npy': npy,
-                'netcdf': os.path.join(experiment_path, ncfile),
-                'locations': locations,
-                'var': variable,
-                'id': i,
-            }
-            for i, (ncfile, npy) in enumerate(ncnpy)
-        ])
+        if len(ncnpy):
+            multiprocessing.Pool(cpus).map(interpolate_variable_worker, [
+                {
+                    'npy': npy,
+                    'netcdf': os.path.join(experiment_path, ncfile),
+                    'locations': locations,
+                    'var': variable,
+                    'id': i,
+                }
+                for i, (ncfile, npy) in enumerate(ncnpy)
+            ])
 
 
 def transform_csv(data, model_id):
