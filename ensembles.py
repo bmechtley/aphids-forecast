@@ -49,7 +49,7 @@ def interpolate_variable_worker(args):
         csv (str): CSV output path.
     """
 
-    print args['id'], 'opening', args['netcdf']
+    print '\t', args['id'], 'opening', args['netcdf']
 
     ncf = netCDF4.Dataset(args['netcdf'], 'r', format='NETCDF4')
     var = ncf.variables[args['var']][:]
@@ -62,7 +62,7 @@ def interpolate_variable_worker(args):
     # you just have lat = (nlat,) and lon = (nlon,) rather than each being
     # repeated (nlat, nlon) matrices.
     if lats.ndim < 2:
-        print args['id'], 'Reshaping.'
+        print '\t', args['id'], 'Reshaping.'
         lats, lons = np.meshgrid(lats, lons)
 
         if var.ndim > 3:
@@ -81,7 +81,7 @@ def interpolate_variable_worker(args):
             latlons, var[t, :, :].flatten(), args['locations']
         )
 
-    print args['id'], 'writing', args['npy']
+    print '\t', args['id'], 'writing', args['npy']
 
     if not os.path.exists(os.path.dirname(args['npy'])):
         os.makedirs(os.path.dirname(args['npy']))
@@ -144,6 +144,14 @@ def interpolate_variable(
                 multiprocessing.cpu_count() - 1
             )))
 
+        ncnpy = [
+            (nc, npy)
+            for (nc, npy) in zip(netcdf_files, npyfiles)
+            if force or not os.path.exists(npy)
+        ]
+
+        print '\t%s: %d to process.' % (experiment, len(ncnpy))
+
         multiprocessing.Pool(cpus).map(interpolate_variable_worker, [
             {
                 'npy': npy,
@@ -152,8 +160,7 @@ def interpolate_variable(
                 'var': variable,
                 'id': i,
             }
-            for i, (ncfile, npy) in enumerate(zip(netcdf_files, npyfiles))
-            if force or not os.path.exists(npy)
+            for i, (ncfile, npy) in enumerate(ncnpy)
         ])
 
 
