@@ -116,6 +116,8 @@ def interpolate_variable(
         interpolated output file already exists.
     """
 
+    print 'Interpolating %s.' % project
+
     for experiment in experiments:
         experiment_path = os.path.join(source_path, project, experiment)
 
