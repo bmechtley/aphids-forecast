@@ -239,7 +239,7 @@ def load_winteravg(data_path, experiments, force=False):
                             for y in uniq_year
                         ]
                     ] for (l, l_data) in [
-                        (l, data[data[:, cloc == l]])
+                        (l, data[data[:, cloc] == l])
                         for l in uniq_loc
                     ]
                 ])
