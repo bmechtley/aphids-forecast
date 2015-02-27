@@ -177,7 +177,7 @@ def load_all_data(esgf_path, data_path):
     )
 
     projects['cordex'] = dict(
-        name='CORDEX',
+        name='CORDEX/44',
         color='orange',
         type='ensemble',
         plotargs=dict(alpha=0.25),
