@@ -49,6 +49,8 @@ def main():
     for experiment, datasets in itertools.chain(
             singles.iteritems(), experiments.iteritems()
     ):
+        print experiment, datasets
+
         # Make the figure.
         pp.figure(figsize=(10, 20))
 
