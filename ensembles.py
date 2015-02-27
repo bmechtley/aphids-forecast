@@ -1,5 +1,4 @@
 import os
-import sys
 import glob
 import netCDF4
 import os.path
@@ -134,7 +133,7 @@ def interpolate_variable(
         print experiment_path, '(%d)' % len(netcdf_files)
 
         if cpus is None:
-            cpus = max(1, int(sys.env.get(
+            cpus = max(1, int(os.environ.get(
                 'INTERP_CPUS',
                 multiprocessing.cpu_count() - 1
             )))
