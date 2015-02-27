@@ -1,4 +1,5 @@
 import os
+import sys
 import glob
 import netCDF4
 import os.path
@@ -87,7 +88,7 @@ def interpolate_variable_worker(args):
 
 def interpolate_variable(
     source_path, out_path, project, locations, experiments, variable,
-    force=False
+    force=False, cpus=None
 ):
     """
     Opens ESGF NetCDF files from a list of experiments in the specified source
@@ -132,7 +133,13 @@ def interpolate_variable(
 
         print experiment_path, '(%d)' % len(netcdf_files)
 
-        multiprocessing.Pool(3).map(interpolate_variable_worker, [
+        if cpus is None:
+            cpus = max(1, int(sys.env.get(
+                'INTERP_CPUS',
+                multiprocessing.cpu_count() - 1
+            )))
+
+        multiprocessing.Pool(cpus).map(interpolate_variable_worker, [
             {
                 'npy': npy,
                 'netcdf': os.path.join(experiment_path, ncfile),
