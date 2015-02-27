@@ -65,9 +65,6 @@ def main():
                 if len(data.shape) < 3:
                     data = np.atleast_3d(data)
 
-                if len(diffs.shape) < 3:
-                    diffs = np.atleast_3d(diffs)
-
                 print experiment, dskey, data.shape
 
                 for model in range(data.shape[2]):
@@ -109,6 +106,10 @@ def main():
 
             for dataset in datasets.itervalues():
                 diffs = dataset['data']
+
+                if len(diffs.shape) < 3:
+                    diffs = np.atleast_3d(diffs)
+
                 plotargs = dataset.get('plotargs', {})
 
                 for model in range(diffs.shape[2]):
