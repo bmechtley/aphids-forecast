@@ -60,6 +60,10 @@ def main():
                 data, years = dataset['data'], dataset['years']
                 plotargs = dataset.get('plotargs', {})
                 print experiment, dskey, data.shape
+
+                if len(data.shape) < 3:
+                    data = np.atleast_3d(data)
+
                 for model in range(data.shape[2]):
                     plotdata = data[loc, :, model]
                     finite = np.isfinite(plotdata)
