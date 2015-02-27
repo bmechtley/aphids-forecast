@@ -65,8 +65,6 @@ def main():
                 if len(data.shape) < 3:
                     data = np.atleast_3d(data)
 
-                print experiment, dskey, data.shape
-
                 for model in range(data.shape[2]):
                     plotdata = data[loc, :, model]
                     finite = np.isfinite(plotdata)
@@ -133,6 +131,9 @@ def main():
             '%s mean winter temperature predictions' % experiment.upper()
         )
         pp.subplots_adjust(hspace=0.9, wspace=0.25, top=0.95, bottom=0.05)
+
+        if not os.exists('plots'):
+            os.mkdir('plots')
 
         plot_path = os.path.join('plots', 'temps-%s.pdf' % experiment)
         print 'Writing %s.' % plot_path
