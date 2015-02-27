@@ -34,6 +34,7 @@ def load_met(data_path, force=False):
             explanation of data in each key.
     """
 
+    os.makedirs(data_path)
     met_path = os.path.join(data_path, 'met.npz')
 
     if force or not os.path.exists(met_path):
