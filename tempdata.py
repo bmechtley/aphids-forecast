@@ -58,6 +58,33 @@ def load_met(data_path, force=False):
             )
             text = urllib2.urlopen(datauri).read().splitlines()
 
+            # Print out closed/moved locations because why not
+            # TODO: Should probably handle moved locations, but I really can't
+            # TODO:     figure out the UTM coordinates they're using.
+            for i, line in enumerate(text):
+                if 'Site' in line:
+                    tokens = text[i-1].split()
+
+                    print '\t%s (%fN, %fE) closed: %s-%s' % (
+                        station_name,
+                        station['lat'],
+                        station['lon'],
+                        tokens[0],
+                        tokens[1]
+                    )
+
+
+                if 'before' in line:
+                    tokens = line.lstrip('Location').split('after')
+
+                    print '\t%s (%fN, %fE) moved:\n\t\t%s\n\t\tafter %s' % (
+                        station_name,
+                        station['lat'],
+                        station['lon'],
+                        tokens[0].lstrip(' '),
+                        tokens[1]
+                    )
+
             # MET data has a really bizarre format.
             data = np.array([
                 [
@@ -153,7 +180,7 @@ def load_all_data(esgf_path, data_path):
         name='MET',
         colors=['k'],
         type='single',
-        plotargs=dict(lw=2)
+        plotargs=dict()
     )
     singles['met'].update(load_met(data_path))
 

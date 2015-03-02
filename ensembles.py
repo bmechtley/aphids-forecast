@@ -1,4 +1,5 @@
 import os
+import sys
 import glob
 import netCDF4
 import os.path
@@ -49,39 +50,84 @@ def interpolate_variable_worker(args):
         csv (str): CSV output path.
     """
 
-    print '\t', args['id'], 'opening', args['netcdf']
+    cpu_id = os.getpid()
 
-    ncf = netCDF4.Dataset(args['netcdf'], 'r', format='NETCDF4')
-    var = ncf.variables[args['var']][:]
-    lats = ncf.variables['lat'][:]
-    lons = ncf.variables['lon'][:]
-    times = ncf.variables['time'][:]
+    print '\t\tPID %d / File %d: opening %s.' % (cpu_id, args['id'], args['netcdf'])
 
-    # The 44i vs 44 CORDEX data is formatted a little differently, as lat and
-    # lon aren't functions computed at each grid point, but are dimensions, so
-    # you just have lat = (nlat,) and lon = (nlon,) rather than each being
-    # repeated (nlat, nlon) matrices.
-    if lats.ndim < 2:
-        print '\t', args['id'], 'Reshaping.'
-        lats, lons = np.meshgrid(lats, lons)
+    try:
+        ncf = netCDF4.Dataset(args['netcdf'], 'r', format='NETCDF4')
+        var = ncf.variables[args['var']][:]
+        lats = ncf.variables['lat'][:]
+        lons = ncf.variables['lon'][:]
+        times = ncf.variables['time'][:]
+    except:
+        print 'Error loading NetCDF:', args
+        raise
 
-        if var.ndim > 3:
-            var = var.reshape((len(times), lats.shape[0], lats.shape[1]))
+    try:
+        # Correct for CMIP5 0 to 360. Make -180 to 180.
+        lons[lons >= 180] = -(360 - lons[lons >= 180])
 
-    latlons = np.array([lats.flatten(), lons.flatten()]).T
+        # The 44i vs 44 CORDEX data is formatted a little differently, as lat
+        # and lon aren't functions computed at each grid point, but are
+        # dimensions, so you just have lat = (nlat,) and lon = (nlon,) rather
+        # than each being repeated (nlat, nlon) matrices.
+        if lats.ndim < 2:
+            lats, lons = np.meshgrid(lats, lons)
+
+            if var.ndim > 3:
+                var = var.reshape((len(times), lats.shape[0], lats.shape[1]))
+    except:
+        print 'Error reshaping:', args, lats.shape, lons.shape, times.shape
+        raise
+
+    try:
+        # Crop out bounding box.
+        bb = np.array([
+            [uniq[np.argmax(uniq >= lmin) - 1], uniq[np.argmax(uniq > lmax)]]
+            for uniq, lmin, lmax in [
+                (
+                    sorted(np.unique(coords.flatten())),
+                    np.amin(args['locations'][:, i]),
+                    np.amax(args['locations'][:, i])
+                )
+                for i, coords in enumerate([lats, lons])
+            ]
+        ])
+
+        latmin, latmax, lonmin, lonmax = bb[0, 0], bb[0, 1], bb[1, 0], bb[1, 1]
+
+        valid_locs = np.bitwise_and(
+            np.bitwise_and(lats <= latmax, lats >= latmin),
+            np.bitwise_and(lons <= lonmax, lons >= lonmin)
+        ).flatten()
+
+        latlons = np.array([lats.flatten(), lons.flatten()]).T
+
+        var = var.reshape((len(times), len(latlons)))[:, valid_locs]
+        latlons = latlons[valid_locs]
+    except:
+        print 'Error cropping:', args, lats.shape, lons.shape, times.shape
+        raise
 
     # Could do one 3D scipy.interpolate.griddata interpolation, but it
     # appears to be much slower than just doing a 2D for each month. Probably
     # takes up too much memory.
-    interpolated = np.zeros((len(times), len(args['locations']) + 1))
 
-    for t, time in enumerate(times):
-        interpolated[t, 0] = time
-        interpolated[t, 1:] = scipy.interpolate.griddata(
-            latlons, var[t, :, :].flatten(), args['locations']
-        )
+    try:
+        interpolated = np.zeros((len(times), len(args['locations']) + 1))
 
-    print '\t', args['id'], 'writing', args['npy']
+        print '\t\tPID %d / File %d: Performing interpolations.' % (cpu_id, args['id'])
+        for t, time in enumerate(times):
+            interpolated[t, 0] = time
+            interpolated[t, 1:] = scipy.interpolate.griddata(
+                latlons, var[t], args['locations']
+            )
+    except:
+        print 'Error interpolating:', args, lats.shape, lons.shape, latlons.shape, var.shape, times.shape
+        raise
+
+    print '\t\tPID %d / File %d: Writing %s.' % (cpu_id, args['id'], args['npy'])
 
     if not os.path.exists(os.path.dirname(args['npy'])):
         os.makedirs(os.path.dirname(args['npy']))
@@ -136,8 +182,6 @@ def interpolate_variable(
             for ncfile in netcdf_files
         ]
 
-
-
         if cpus is None:
             cpus = max(1, int(os.environ.get(
                 'INTERP_CPUS',
@@ -155,7 +199,9 @@ def interpolate_variable(
         )
 
         if len(ncnpy):
-            multiprocessing.Pool(cpus).map(interpolate_variable_worker, [
+            mapfun = map if cpus < 2 else multiprocessing.Pool(cpus).map
+
+            mapfun(interpolate_variable_worker, [
                 {
                     'npy': npy,
                     'netcdf': os.path.join(experiment_path, ncfile),
